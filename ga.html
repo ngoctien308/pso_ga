@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Genetic Algorithm Visualization</title>
+    <style>
+      canvas {
+        border: 1px solid black;
+        display: block;
+        margin: 0 auto;
+      }
+      body {
+        text-align: center;
+        font-family: Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Genetic Algorithm Visualization</h1>
+    <p>
+      Objective: Minimize the Sphere function (<code>f(x, y) = x² + y²</code>)
+    </p>
+    <canvas id="canvas" width="600" height="600"></canvas>
+    <script>
+      // Hàm mục tiêu: Hàm Sphere (f(x, y) = x² + y²)
+      function objectiveFunction(x, y) {
+        return x * x + y * y;
+      }
+
+      // Tạo cá thể ngẫu nhiên
+      function createIndividual(lowerBound, upperBound) {
+        return {
+          x: lowerBound + Math.random() * (upperBound - lowerBound),
+          y: lowerBound + Math.random() * (upperBound - lowerBound),
+          fitness: Infinity
+        };
+      }
+
+      // Đánh giá fitness cho từng cá thể
+      function evaluateFitness(individual) {
+        individual.fitness = objectiveFunction(individual.x, individual.y);
+      }
+
+      // Lai ghép (Crossover) giữa hai cá thể
+      function crossover(parent1, parent2) {
+        return {
+          x: (parent1.x + parent2.x) / 2,
+          y: (parent1.y + parent2.y) / 2,
+          fitness: Infinity
+        };
+      }
+
+      // Đột biến (Mutation)
+      function mutate(individual, mutationRate, lowerBound, upperBound) {
+        if (Math.random() < mutationRate) {
+          individual.x += (Math.random() - 0.5) * 2;
+          individual.y += (Math.random() - 0.5) * 2;
+
+          // Đảm bảo trong giới hạn
+          individual.x = Math.max(
+            lowerBound,
+            Math.min(upperBound, individual.x)
+          );
+          individual.y = Math.max(
+            lowerBound,
+            Math.min(upperBound, individual.y)
+          );
+        }
+      }
+
+      // Lựa chọn cha mẹ (Tournament Selection)
+      function selectParent(population) {
+        const tournamentSize = 3;
+        let best = null;
+
+        for (let i = 0; i < tournamentSize; i++) {
+          const randomIndex = Math.floor(Math.random() * population.length);
+          const candidate = population[randomIndex];
+          if (!best || candidate.fitness < best.fitness) {
+            best = candidate;
+          }
+        }
+
+        return best;
+      }
+
+      // Vẽ lên canvas
+      function draw(canvas, context, population, bestIndividual, generation) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Vẽ lưới
+        for (let i = 0; i <= canvas.width; i += 20) {
+          context.strokeStyle = '#ddd';
+          context.beginPath();
+          context.moveTo(i, 0);
+          context.lineTo(i, canvas.height);
+          context.stroke();
+
+          context.beginPath();
+          context.moveTo(0, i);
+          context.lineTo(canvas.width, i);
+          context.stroke();
+        }
+
+        // Vẽ các cá thể
+        population.forEach((individual) => {
+          const canvasX =
+            ((individual.x - lowerBound) / (upperBound - lowerBound)) *
+            canvas.width;
+          const canvasY =
+            ((individual.y - lowerBound) / (upperBound - lowerBound)) *
+            canvas.height;
+
+          context.fillStyle = 'blue';
+          context.beginPath();
+          context.arc(canvasX, canvasY, 5, 0, Math.PI * 2);
+          context.fill();
+        });
+
+        // Vẽ cá thể tốt nhất
+        const bestX =
+          ((bestIndividual.x - lowerBound) / (upperBound - lowerBound)) *
+          canvas.width;
+        const bestY =
+          ((bestIndividual.y - lowerBound) / (upperBound - lowerBound)) *
+          canvas.height;
+        context.fillStyle = 'red';
+        context.beginPath();
+        context.arc(bestX, bestY, 10, 0, Math.PI * 2);
+        context.fill();
+
+        // Hiển thị thông tin
+        context.fillStyle = 'black';
+        context.font = '16px Arial';
+        context.fillText(`Generation: ${generation}`, 10, 20);
+        context.fillText(
+          `Best Fitness: ${bestIndividual.fitness.toFixed(4)}`,
+          10,
+          40
+        );
+      }
+
+      // Main
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext('2d');
+
+      const populationSize = 30;
+      const lowerBound = -10;
+      const upperBound = 10;
+      const generations = 100;
+      const mutationRate = 0.1;
+
+      let population = Array.from({ length: populationSize }, () =>
+        createIndividual(lowerBound, upperBound)
+      );
+
+      let bestIndividual = null;
+      let generation = 0;
+
+      function run() {
+        if (generation < generations) {
+          // Đánh giá fitness cho từng cá thể
+          population.forEach(evaluateFitness);
+
+          // Cập nhật cá thể tốt nhất
+          population.forEach((individual) => {
+            if (
+              !bestIndividual ||
+              individual.fitness < bestIndividual.fitness
+            ) {
+              bestIndividual = { ...individual };
+            }
+          });
+
+          // Tạo thế hệ mới
+          const newPopulation = [];
+          for (let i = 0; i < populationSize; i++) {
+            const parent1 = selectParent(population);
+            const parent2 = selectParent(population);
+            const offspring = crossover(parent1, parent2);
+            mutate(offspring, mutationRate, lowerBound, upperBound);
+            newPopulation.push(offspring);
+          }
+          population = newPopulation;
+
+          // Vẽ
+          draw(canvas, context, population, bestIndividual, generation);
+          generation++;
+          requestAnimationFrame(run);
+        }
+      }
+
+      run();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PSO Visualization</title>
+    <style>
+      canvas {
+        border: 1px solid black;
+        display: block;
+        margin: 0 auto;
+      }
+      body {
+        text-align: center;
+        font-family: Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Particle Swarm Optimization Visualization</h1>
+    <p>
+      Objective: Minimize the Sphere function (<code>f(x, y) = x² + y²</code>)
+    </p>
+    <canvas id="canvas" width="600" height="600"></canvas>
+    <script>
+      // Hàm mục tiêu: Hàm Sphere (f(x, y) = x² + y²)
+      function objectiveFunction(x, y) {
+        return x * x + y * y;
+      }
+
+      // Lớp Particle
+      class Particle {
+        constructor(lowerBound, upperBound) {
+          this.x = lowerBound + Math.random() * (upperBound - lowerBound);
+          this.y = lowerBound + Math.random() * (upperBound - lowerBound);
+          this.vx = (Math.random() - 0.5) * 0.1;
+          this.vy = (Math.random() - 0.5) * 0.1;
+          this.bestX = this.x;
+          this.bestY = this.y;
+          this.bestValue = Infinity;
+        }
+
+        updateBest() {
+          const value = objectiveFunction(this.x, this.y);
+          if (value < this.bestValue) {
+            this.bestValue = value;
+            this.bestX = this.x;
+            this.bestY = this.y;
+          }
+        }
+      }
+
+      // Thuật toán PSO
+      class PSO {
+        constructor(
+          swarmSize,
+          lowerBound,
+          upperBound,
+          inertia,
+          cognitive,
+          social
+        ) {
+          this.swarm = Array.from(
+            { length: swarmSize },
+            () => new Particle(lowerBound, upperBound)
+          );
+          this.globalBestX = 0;
+          this.globalBestY = 0;
+          this.globalBestValue = Infinity;
+          this.lowerBound = lowerBound;
+          this.upperBound = upperBound;
+          this.inertia = inertia;
+          this.cognitive = cognitive;
+          this.social = social;
+        }
+
+        optimize() {
+          this.swarm.forEach((particle) => {
+            particle.updateBest();
+
+            if (particle.bestValue < this.globalBestValue) {
+              this.globalBestValue = particle.bestValue;
+              this.globalBestX = particle.bestX;
+              this.globalBestY = particle.bestY;
+            }
+          });
+
+          this.swarm.forEach((particle) => {
+            const r1 = Math.random();
+            const r2 = Math.random();
+
+            particle.vx =
+              this.inertia * particle.vx +
+              this.cognitive * r1 * (particle.bestX - particle.x) +
+              this.social * r2 * (this.globalBestX - particle.x);
+            particle.vy =
+              this.inertia * particle.vy +
+              this.cognitive * r1 * (particle.bestY - particle.y) +
+              this.social * r2 * (this.globalBestY - particle.y);
+
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+
+            // Đảm bảo trong giới hạn
+            particle.x = Math.max(
+              this.lowerBound,
+              Math.min(this.upperBound, particle.x)
+            );
+            particle.y = Math.max(
+              this.lowerBound,
+              Math.min(this.upperBound, particle.y)
+            );
+          });
+        }
+      }
+
+      // Vẽ lên canvas
+      function draw(canvas, context, pso, iteration) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Vẽ lưới
+        for (let i = 0; i <= canvas.width; i += 20) {
+          context.strokeStyle = '#ddd';
+          context.beginPath();
+          context.moveTo(i, 0);
+          context.lineTo(i, canvas.height);
+          context.stroke();
+
+          context.beginPath();
+          context.moveTo(0, i);
+          context.lineTo(canvas.width, i);
+          context.stroke();
+        }
+
+        // Vẽ hạt
+        pso.swarm.forEach((particle) => {
+          const canvasX =
+            ((particle.x - pso.lowerBound) /
+              (pso.upperBound - pso.lowerBound)) *
+            canvas.width;
+          const canvasY =
+            ((particle.y - pso.lowerBound) /
+              (pso.upperBound - pso.lowerBound)) *
+            canvas.height;
+
+          context.fillStyle = 'blue';
+          context.beginPath();
+          context.arc(canvasX, canvasY, 5, 0, Math.PI * 2);
+          context.fill();
+        });
+
+        // Vẽ global best
+        const gX =
+          ((pso.globalBestX - pso.lowerBound) /
+            (pso.upperBound - pso.lowerBound)) *
+          canvas.width;
+        const gY =
+          ((pso.globalBestY - pso.lowerBound) /
+            (pso.upperBound - pso.lowerBound)) *
+          canvas.height;
+        context.fillStyle = 'red';
+        context.beginPath();
+        context.arc(gX, gY, 10, 0, Math.PI * 2);
+        context.fill();
+
+        // Hiển thị thông tin
+        context.fillStyle = 'black';
+        context.font = '16px Arial';
+        context.fillText(`Iteration: ${iteration}`, 10, 20);
+        context.fillText(
+          `Best Value: ${pso.globalBestValue.toFixed(4)}`,
+          10,
+          40
+        );
+      }
+
+      // Main
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext('2d');
+
+      const swarmSize = 30;
+      const lowerBound = -10;
+      const upperBound = 10;
+      const inertia = 0.7;
+      const cognitive = 1.5;
+      const social = 1.5;
+
+      const pso = new PSO(
+        swarmSize,
+        lowerBound,
+        upperBound,
+        inertia,
+        cognitive,
+        social
+      );
+      let iteration = 0;
+
+      function run() {
+        if (iteration < 100) {
+          pso.optimize();
+          draw(canvas, context, pso, iteration);
+          iteration++;
+          requestAnimationFrame(run);
+        }
+      }
+
+      run();
+    </script>
+  </body>
+</html>
